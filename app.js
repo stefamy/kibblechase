@@ -1,6 +1,7 @@
 // Set up database
-var mongojs = require("mongojs");
-var db = mongojs("localhost:27017/myGame", ["account", "progress"]);
+// var mongojs = require("mongojs");
+var db = null;
+//mongojs("localhost:27017/myGame", ["account", "progress"]);
 
 // Set up Express for file communication
 var express = require("express");
@@ -14,7 +15,7 @@ app.get("/", function(req, res) {
 // If other requested, send it with appropriate file path:
 app.use("/client", express.static(__dirname + "/client"));
 
-serv.listen(2000);
+serv.listen(process.env.PORT || 2000);
 console.log("Server started.");
 
 var SOCKET_LIST = {};
@@ -51,6 +52,9 @@ var Player = function(id) {
   self.pressingAttack = false;
   self.mouseAngle = 0;
   self.maxSpd = 10;
+  self.hp = 1;
+  self.hpMax = 10;
+  self.score = 0;
 
   var super_update = self.update;
   self.update = function() {
@@ -107,7 +111,7 @@ var Player = function(id) {
 
   Player.list[id] = self;
 
-  initPack.player.push(self.getInitiPack());
+  initPack.player.push(self.getInitPack());
   return self;
 };
 Player.list = {};
@@ -129,6 +133,7 @@ Player.onConnect = function(socket) {
     }
   });
   socket.emit("init", {
+    selfId: socket.id,
     player: Player.getAllInitPack(),
     bullet: Bullet.getAllInitPack()
   });
@@ -234,33 +239,37 @@ Bullet.getAllInitPack = function() {
 var DEBUG = true; // TODO: Set to false before deploying
 
 var isValidPassword = function(data, cb) {
-  db.account.find(
-    { username: data.username, password: data.password },
-    function(err, result) {
-      if (result.length > 0) {
-        cb(true);
-      } else {
-        cb(false);
-      }
-    }
-  );
+  return cb(true);
+  //   db.account.find(
+  //     { username: data.username, password: data.password },
+  //     function(err, result) {
+  //       if (result.length > 0) {
+  //         cb(true);
+  //       } else {
+  //         cb(false);
+  //       }
+  //     }
+  //   );
 };
 var isUsernameTaken = function(data, cb) {
-  db.account.find({ username: data.username }, function(err, result) {
-    if (result.length > 0) {
-      cb(true);
-    } else {
-      cb(false);
-    }
-  });
+  return cb(false);
+
+  //   db.account.find({ username: data.username }, function(err, result) {
+  //     if (result.length > 0) {
+  //       cb(true);
+  //     } else {
+  //       cb(false);
+  //     }
+  //   });
 };
 var addUser = function(data, cb) {
-  db.account.insert(
-    { username: data.username, password: data.password },
-    function(err) {
-      cb();
-    }
-  );
+  return cb();
+  //   db.account.insert(
+  //     { username: data.username, password: data.password },
+  //     function(err) {
+  //       cb();
+  //     }
+  //   );
 };
 
 // Retrieving the socket io library.
