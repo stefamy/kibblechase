@@ -1,109 +1,121 @@
-<canvas
-  id="ctx"
-  width="800"
-  height="600"
-  style="border:1px solid #000000; position: absolute; left: 0; top: 0;"
-></canvas>
+<div
+  id="container"
+  style="display:flex; flex-direction:row; align-items:flex-start; justify-content: items;"
+>
+  <canvas
+    id="ctx"
+    width="800"
+    height="600"
+    style="border:1px solid #000000;"
+  ></canvas>
+  <div id="score" style="padding: 40px;">
+    Press keys to move your dog:<br />
+    <p>Up: W, Down: S, Left: A, Right: D</p>
+  </div>
 
-<script src="/client/socket.js"></script>
-<script>
-  var truckImg = new Image();
-  truckImg.src = "/client/img/truck.png";
-  var level1 = new Image();
-  level1.src = "/client/img/level1.png";
-  var level2 = new Image();
-  level2.src = "/client/img/level2.png";
-  var truckRight = new Image();
-  truckRight.src = "/client/img/truckRight.png";
-  var dogRedImg = new Image();
-  dogRedImg.src = "/client/img/dogRed.png";
-  var dogRedRight = new Image();
-  dogRedRight.src = "/client/img/dogRedRight.png";
-  var dogBlueImg = new Image();
-  dogBlueImg.src = "/client/img/dogBlue.png";
-  var dogBlueRight = new Image();
-  dogBlueRight.src = "/client/img/dogBlueRight.png";
-  var boneImg = new Image();
-  boneImg.src = "/client/img/boneSprite.png";
+</div>
 
-  var ctx = document.getElementById("ctx").getContext("2d");
+  <script src="/client/socket.js"></script>
+  <script>
+    var scoreText = document.getElementById("#scoreText1");
+    var scoreTitle = document.getElementById("#scoreTitle");
 
-  ctx.font = "30px Arial";
+    var truckImg = new Image();
+    truckImg.src = "/client/img/truck.png";
+    var level1 = new Image();
+    level1.src = "/client/img/level1.png";
+    var level2 = new Image();
+    level2.src = "/client/img/level2.png";
+    var truckRight = new Image();
+    truckRight.src = "/client/img/truckRight.png";
+    var dogRedImg = new Image();
+    dogRedImg.src = "/client/img/dogRed.png";
+    var dogRedRight = new Image();
+    dogRedRight.src = "/client/img/dogRedRight.png";
+    var dogBlueImg = new Image();
+    dogBlueImg.src = "/client/img/dogBlue.png";
+    var dogBlueRight = new Image();
+    dogBlueRight.src = "/client/img/dogBlueRight.png";
+    var boneImg = new Image();
+    boneImg.src = "/client/img/boneSprite.png";
 
-  var socket = io();
+    var ctx = document.getElementById("ctx").getContext("2d");
+    ctx.font = "30px Arial";
 
-  socket.on("newPositions", function(data) {
-    ctx.clearRect(0, 0, 800, 600);
-    ctx.drawImage(level1, 0, 0);
-    ctx.drawImage(level2, 0, 300);
+    var socket = io();
 
-    for (var i = 0; i < data.player.length; i++) {
-      // TODO: Include this in player init.
-      if (i % 2 === 0) {
-        dog = dogRedImg;
-        if (data.player[i].facingRight) {
-          dog = dogRedRight;
+    socket.on("newPositions", function(data) {
+      ctx.clearRect(0, 0, 800, 600);
+      ctx.drawImage(level1, 0, 0);
+      ctx.drawImage(level2, 0, 300);
+
+      for (var i = 0; i < data.player.length; i++) {
+        if (i % 2 === 0) {
+          dog = dogRedImg;
+          if (data.player[i].facingRight) {
+            dog = dogRedRight;
+          }
+        } else {
+          dog = dogBlueImg;
+          if (data.player[i].facingRight) {
+            dog = dogBlueRight;
+          }
         }
-      } else {
-        dog = dogBlueImg;
-        if (data.player[i].facingRight) {
-          dog = dogBlueRight;
-        }
+        ctx.drawImage(dog, data.player[i].x, data.player[i].y);
       }
-      ctx.drawImage(dog, data.player[i].x, data.player[i].y);
-    }
-    var truck = truckImg;
-    if (data.truck[0].facingRight) {
-      truck = truckRight;
-    }
-    for (var j = 0; j < data.truck[0].bones.length; j++) {
-      bone = data.truck[0].bones[j];
-      render(ctx, bone, boneImg);
-    }
-    ctx.drawImage(truck, data.truck[0].x, data.truck[0].y);
-  });
+      var truck = truckImg;
+      if (data.truck[0].facingRight) {
+        truck = truckRight;
+      }
+      for (var j = 0; j < data.truck[0].bones.length; j++) {
+        bone = data.truck[0].bones[j];
+        render(ctx, bone, boneImg);
+      }
+      ctx.drawImage(truck, data.truck[0].x, data.truck[0].y);
+    });
 
-  var render = function(ctx, that, image) {
-    // Draw the animation
-    ctx.drawImage(
-      image,
-      (that.frame * image.width) / 4,
-      0,
-      image.width / 4,
-      image.height,
-      that.x,
-      that.y,
-      image.width / 4,
-      image.height
-    );
-  };
+    var render = function(ctx, that, image) {
+      // Draw the animation
+      ctx.drawImage(
+        image,
+        (that.frame * image.width) / 4,
+        0,
+        image.width / 4,
+        image.height,
+        that.x,
+        that.y,
+        image.width / 4,
+        image.height
+      );
+    };
 
-  document.onkeydown = function(event) {
-    if (event.keyCode === 68)
-      //d
-      socket.emit("keyPress", { inputId: "right", state: true });
-    else if (event.keyCode === 83)
-      //s
-      socket.emit("keyPress", { inputId: "down", state: true });
-    else if (event.keyCode === 65)
-      //a
-      socket.emit("keyPress", { inputId: "left", state: true });
-    else if (event.keyCode === 87)
-      // w
-      socket.emit("keyPress", { inputId: "up", state: true });
-  };
-  document.onkeyup = function(event) {
-    if (event.keyCode === 68)
-      //d
-      socket.emit("keyPress", { inputId: "right", state: false });
-    else if (event.keyCode === 83)
-      //s
-      socket.emit("keyPress", { inputId: "down", state: false });
-    else if (event.keyCode === 65)
-      //a
-      socket.emit("keyPress", { inputId: "left", state: false });
-    else if (event.keyCode === 87)
-      // w
-      socket.emit("keyPress", { inputId: "up", state: false });
-  };
-</script>
+    document.onkeydown = function(event) {
+      if (event.keyCode === 68)
+        //d
+        socket.emit("keyPress", { inputId: "right", state: true });
+      else if (event.keyCode === 83)
+        //s
+        socket.emit("keyPress", { inputId: "down", state: true });
+      else if (event.keyCode === 65)
+        //a
+        socket.emit("keyPress", { inputId: "left", state: true });
+      else if (event.keyCode === 87)
+        // w
+        socket.emit("keyPress", { inputId: "up", state: true });
+    };
+    document.onkeyup = function(event) {
+      if (event.keyCode === 68)
+        //d
+        socket.emit("keyPress", { inputId: "right", state: false });
+      else if (event.keyCode === 83)
+        //s
+        socket.emit("keyPress", { inputId: "down", state: false });
+      else if (event.keyCode === 65)
+        //a
+        socket.emit("keyPress", { inputId: "left", state: false });
+      else if (event.keyCode === 87)
+        // w
+        socket.emit("keyPress", { inputId: "up", state: false });
+    };
+  </script>
+</div>
