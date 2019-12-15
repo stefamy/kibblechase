@@ -1,287 +1,109 @@
-<canvas id="ctx" width="500" height="500" style="border:1px solid #000000;">
-</canvas>
+<canvas
+  id="ctx"
+  width="800"
+  height="600"
+  style="border:1px solid #000000; position: absolute; left: 0; top: 0;"
+></canvas>
 
-<div id="signDiv">
-    Username: <input id="signDiv-username" type="text"></input><br>
-    Password: <input id="signDiv-password" type="password"></input>
-    <button id="signDiv-signIn">Sign In</button>
-    <button id="signDiv-signUp">Sign Up</button>
-</div>
-
-
-<div id="gameDiv" style="display:none;">
-        <canvas id="ctx" width="500" height="500" style="border:1px solid #000000;"></canvas>
-
-        <div id="chat-text" style="width:500px;height:100px;overflow-y:scroll">
-            <div>Hello!</div>
-        </div>
-
-        <form id="chat-form">
-            <input id="chat-input" type="text" style="width:500px"></input>
-        </form>
-    </div>
-
-<script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
+<script src="/client/socket.js"></script>
 <script>
-	var WIDTH = 500;
-	var HEIGHT = 500;
-	var socket = io();
-
-
-    // Sign in
-    var signDiv = document.getElementById('signDiv');
-    var signDivUsername = document.getElementById('signDiv-username');
-    var signDivSignIn = document.getElementById('signDiv-signIn');
-    var signDivSignUp = document.getElementById('signDiv-signUp');
-    var signDivPassword = document.getElementById('signDiv-password');
-
-    signDivSignIn.onclick = function(){
-        socket.emit('signIn',{username:signDivUsername.value,password:signDivPassword.value});
-    }
-    signDivSignUp.onclick = function(){
-        socket.emit('signUp',{username:signDivUsername.value,password:signDivPassword.value});
-    }
-    socket.on('signInResponse',function(data){
-        if(data.success){
-            signDiv.style.display = 'none';
-            gameDiv.style.display = 'inline-block';
-        } else
-            alert("Sign in unsuccessul.");
-    });
-    socket.on('signUpResponse',function(data){
-        if(data.success){
-            alert("Sign up successul.");
-        } else
-            alert("Sign up unsuccessul.");
-    });
-
-  // Chat
-  var chatText = document.getElementById('chat-text');
-  var chatInput = document.getElementById('chat-input');
-  var chatForm = document.getElementById('chat-form');
-
-  socket.on("addToChat", function(data) {
-      chatText.innerHTML += '<div>' + data + '</div>';
-  });
-  socket.on("evalAnswer", function(data) {
-      console.log(data);
-  })
-  chatForm.onsubmit = function(e) {
-      e.preventDefault();
-      if(chatInput.value[0] === '/') {
-          socket.emit('evalServer', chatInput.value.slice(1));
-      } else {
-        socket.emit('sendMsgToServer', chatInput.value);
-      }
-      chatInput.value = '';
-    }
-
-  // Game
-  var Img = {};
-  Img.player = new Image();
-  Img.player.src = '/client/img/player.png';
-  Img.bullet = new Image();
-  Img.bullet.src = '/client/img/bullet.png';
-  Img.map = new Image();
-  Img.map.src = '/client/img/map.png';
+  var truckImg = new Image();
+  truckImg.src = "/client/img/truck.png";
+  var level1 = new Image();
+  level1.src = "/client/img/level1.png";
+  var level2 = new Image();
+  level2.src = "/client/img/level2.png";
+  var truckRight = new Image();
+  truckRight.src = "/client/img/truckRight.png";
+  var dogRedImg = new Image();
+  dogRedImg.src = "/client/img/dogRed.png";
+  var dogRedRight = new Image();
+  dogRedRight.src = "/client/img/dogRedRight.png";
+  var dogBlueImg = new Image();
+  dogBlueImg.src = "/client/img/dogBlue.png";
+  var dogBlueRight = new Image();
+  dogBlueRight.src = "/client/img/dogBlueRight.png";
+  var boneImg = new Image();
+  boneImg.src = "/client/img/boneSprite.png";
 
   var ctx = document.getElementById("ctx").getContext("2d");
+
   ctx.font = "30px Arial";
 
-  var Player = function(initPack) {
-      var self = {};
-      self.id = initPack.id;
-      self.number = initPack.number;
-      self.x = initPack.x;
-      self.y = initPack.y;
-      self.hp = initPack.hp;
-      self.hpMax = initPack.hpMax;
-      self.score = initPack.score;
+  var socket = io();
 
+  socket.on("newPositions", function(data) {
+    ctx.clearRect(0, 0, 800, 600);
+    ctx.drawImage(level1, 0, 0);
+    ctx.drawImage(level2, 0, 300);
 
-	self.draw = function(){
-		var x = self.x - Player.list[selfId].x + WIDTH/2;
-		var y = self.y - Player.list[selfId].y + HEIGHT/2;
-		var hpWidth = 30 * self.hp / self.hpMax;
-		ctx.fillStyle = 'red';
-		ctx.fillRect(x - hpWidth/2,y - 40,hpWidth,4);
-
-		var width = Img.player.width*2;
-		var height = Img.player.height*2;
-
-
-		ctx.drawImage(Img.player,
-			0,0,Img.player.width,Img.player.height,
-			x-width/2,y-height/2,width,height);
-
-		//ctx.fillText(self.score,self.x,self.y-60);
-	}
-
-      Player.list[self.id] = self;
-
-      return self;
-    }
-    Player.list = {};
-
-    var Bullet = function(initPack) {
-        var self = {};
-        self.id = initPack.id;
-        self.x = initPack.x;
-        self.y = initPack.y;
-
-		self.draw = function(){
-			var width = Img.bullet.width/2;
-			var height = Img.bullet.height/2;
-
-			var x = self.x - Player.list[selfId].x + WIDTH/2;
-			var y = self.y - Player.list[selfId].y + HEIGHT/2;
-
-			ctx.drawImage(Img.bullet,
-				0,0,Img.bullet.width,Img.bullet.height,
-				x-width/2,y-height/2,width,height);
-		}
-
-		Bullet.list[self.id] = self;
-        return self;
-    }
-    Bullet.list = {};
-
-    var selfId = null;
-
-
-    // Init
-    socket.on('init',function(data) {
-        if(data.selfId)
-			selfId = data.selfId;
-		//{ player : [{id:123,number:'1',x:0,y:0},{id:1,number:'2',x:0,y:0}], bullet: []}
-		for(var i = 0 ; i < data.player.length; i++){
-			new Player(data.player[i]);
-		}
-		for(var i = 0 ; i < data.bullet.length; i++){
-			new Bullet(data.bullet[i]);
-		}
-    });
-
-    // Update
-    socket.on('update',function(data) {
-        // { player: [{id: 123, number: '1', x:0, y:0}, {id:1,x:0,y:0}], bullet: []}
-        for(var i = 0; i < data.player.length; i++) {
-            var pack = data.player[i]
-            var p = Player.list[pack.id];
-            if(p) {
-                if (pack.x !== undefined) {
-                    p.x = pack.x;
-                } if (pack.y !== undefined) {
-                    p.y = pack.y;
-                }if(pack.hp !== undefined) {
-                    p.hp = pack.hp;
-                } if(pack.score !== undefined) {
-                    p.score = pack.score;
-                }
-            }
+    for (var i = 0; i < data.player.length; i++) {
+      // TODO: Include this in player init.
+      if (i % 2 === 0) {
+        dog = dogRedImg;
+        if (data.player[i].facingRight) {
+          dog = dogRedRight;
         }
-        for (var i = 0; i < data.bullet.length; i++) {
-            var pack = data.bullet[i];
-            var b = Bullet.list[data.bullet[i].id];
-            if(b) {
-                if (pack.x !== undefined) {
-                    b.x = pack.x;
-                } if (pack.y !== undefined) {
-                    b.y = pack.y;
-                }
-            }
+      } else {
+        dog = dogBlueImg;
+        if (data.player[i].facingRight) {
+          dog = dogBlueRight;
         }
-    });
-
-  // Remove
-  socket.on("remove", function(data) {
-      // {player:[12323], bullet:[12323,123123]}
-      for (var i = 0; i < data.player.length; i++) {
-          delete Player.list[data.player[i]];
-      }for (var i = 0; i < data.bullet.length; i++) {
-          delete Bullet.list[data.bullet[i]];
       }
-  })
-
-
-  setInterval(function(){
-		if(!selfId)
-			return;
-		ctx.clearRect(0,0,500,500);
-		drawMap();
-		drawScore();
-		for(var i in Player.list)
-			Player.list[i].draw();
-		for(var i in Bullet.list)
-			Bullet.list[i].draw();
-	},40);
-
-    var drawMap = function(){
-		var x = WIDTH/2 - Player.list[selfId].x;
-		var y = HEIGHT/2 - Player.list[selfId].y;
-		ctx.drawImage(Img.map,x,y);
-	}
-
-	var drawScore = function(){
-		ctx.fillStyle = 'white';
-		ctx.fillText(Player.list[selfId].score,0,30);
+      ctx.drawImage(dog, data.player[i].x, data.player[i].y);
     }
+    var truck = truckImg;
+    if (data.truck[0].facingRight) {
+      truck = truckRight;
+    }
+    for (var j = 0; j < data.truck[0].bones.length; j++) {
+      bone = data.truck[0].bones[j];
+      render(ctx, bone, boneImg);
+    }
+    ctx.drawImage(truck, data.truck[0].x, data.truck[0].y);
+  });
+
+  var render = function(ctx, that, image) {
+    // Draw the animation
+    ctx.drawImage(
+      image,
+      (that.frame * image.width) / 4,
+      0,
+      image.width / 4,
+      image.height,
+      that.x,
+      that.y,
+      image.width / 4,
+      image.height
+    );
+  };
 
   document.onkeydown = function(event) {
-    if (event.keyCode === 68) {
-      // d
+    if (event.keyCode === 68)
+      //d
       socket.emit("keyPress", { inputId: "right", state: true });
-    } else if (event.keyCode === 83) {
-      // s
+    else if (event.keyCode === 83)
+      //s
       socket.emit("keyPress", { inputId: "down", state: true });
-    } else if (event.keyCode === 65) {
-      // a
+    else if (event.keyCode === 65)
+      //a
       socket.emit("keyPress", { inputId: "left", state: true });
-    } else if (event.keyCode === 87) {
+    else if (event.keyCode === 87)
       // w
       socket.emit("keyPress", { inputId: "up", state: true });
-    }
   };
-
   document.onkeyup = function(event) {
-    if (event.keyCode === 68) {
-      // d
+    if (event.keyCode === 68)
+      //d
       socket.emit("keyPress", { inputId: "right", state: false });
-    } else if (event.keyCode === 83) {
-      // s
+    else if (event.keyCode === 83)
+      //s
       socket.emit("keyPress", { inputId: "down", state: false });
-    } else if (event.keyCode === 65) {
-      // a
+    else if (event.keyCode === 65)
+      //a
       socket.emit("keyPress", { inputId: "left", state: false });
-    } else if (event.keyCode === 87) {
+    else if (event.keyCode === 87)
       // w
       socket.emit("keyPress", { inputId: "up", state: false });
-    }
   };
-
-  document.onmousedown = function(event) {
-      socket.emit('keyPress', {inputId: 'attack', state:true});
-  }
-  document.onmouseup = function(event) {
-      socket.emit('keyPress', {inputId: 'attack', state:false});
-  }
-  document.onmousemove = function(event) {
-      var x = -250 + event.clientX - 0;
-      var y = -250 + event.clientY - 0;
-      var angle = Math.atan2(y, x) / Math.PI * 180;
-      socket.emit('keyPress', {inputId: 'mouseAngle', state:angle});
-  }
-
-
-  // Sample code
-  //   socket.on("serverMsg", function(data) {
-  //     console.log(data.msg);
-  //   });
-  //   var happy = function() {
-  //     socket.emit("Happy", {
-  //       reason: "its my birthday"
-  //     });
-  //   };
 </script>
-
-<button onclick="happy()">Happy</button>

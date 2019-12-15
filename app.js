@@ -1,21 +1,13 @@
-// Set up database
-// var mongojs = require("mongojs");
-var db = null;
-//mongojs("localhost:27017/myGame", ["account", "progress"]);
-
-// Set up Express for file communication
 var express = require("express");
 var app = express();
 var serv = require("http").Server(app);
 
-// If no file requested, send index file:
 app.get("/", function(req, res) {
   res.sendFile(__dirname + "/client/index.html");
 });
-// If other requested, send it with appropriate file path:
 app.use("/client", express.static(__dirname + "/client"));
 
-serv.listen(process.env.PORT || 2000);
+serv.listen(2000);
 console.log("Server started.");
 
 var SOCKET_LIST = {};
@@ -41,10 +33,121 @@ var Entity = function() {
   return self;
 };
 
+var Truck = function() {
+  var self = Entity();
+  self.spdX = 15;
+  self.level = Math.floor(Math.random() * 2);
+  self.y = self.level * 275 + 200;
+  self.facingRight = true;
+
+  var super_update = self.update;
+  self.update = function() {
+    self.updateDirection();
+    super_update();
+  };
+
+  self.updateDirection = function() {
+    if (self.x > 900 || self.x < -150) {
+      self.spdX = -self.spdX;
+      self.facingRight = !self.facingRight;
+      self.level = Math.floor(Math.random() * 2);
+      self.y = self.level * 275 + 200;
+    }
+  };
+  return self;
+};
+
+var bones = [];
+
+Truck.update = function(truck) {
+  var pack = [];
+  truck.update();
+  for (i = 0; i < bones.length; i++) {
+    bones[i].update();
+    bones[i].checkCollision();
+    if (bones[i].life > 120) {
+      destroyElem(bones, bones[i]);
+    }
+  }
+  if (Math.random() > 0.9) {
+    bones.push(Bone(truck));
+  }
+  pack.push({
+    x: truck.x,
+    y: truck.y,
+    facingRight: truck.facingRight,
+    bones: bones
+  });
+  return pack;
+};
+
+function Bone(parent) {
+  var self = Entity();
+  self.x = parent.x;
+  self.y = parent.y;
+  self.originalY = parent.y;
+  self.originalX = parent.x;
+  self.spdX = 1 + getRandomInt(3);
+  self.spdY = 1 + getRandomInt(3);
+  self.life = 0;
+  if (Math.random() < 0.5) {
+    self.spdY = -self.spdY;
+  }
+  if (Math.random() < 0.5) {
+    self.spdX = -self.spdX;
+  }
+  self.frame = 1 + getRandomInt(3);
+
+  var super_update = self.update;
+  self.update = function() {
+    self.updateDirection();
+    self.life++;
+    super_update();
+  };
+
+  self.updateDirection = function() {
+    if (
+      Math.abs(self.originalY - self.Y) > 10 ||
+      Math.abs(self.originalX - self.x) > 40
+    ) {
+      self.spdX = 0;
+      self.spdY = 0;
+    }
+  };
+
+  self.checkCollision = function() {
+    for (var i in Player.list) {
+      var p = Player.list[i];
+      if (self.getDistance(p) < 32) {
+        p.score += 1;
+        self.life = 120;
+      }
+    }
+  };
+
+  return self;
+}
+
+function destroyElem(lst, elem) {
+  var i;
+  for (i = 0; i < lst.length; i += 1) {
+    if (lst[i] === elem) {
+      lst[i] = null;
+      lst.splice(i, 1);
+      break;
+    }
+  }
+}
+
+function getRandomInt(max) {
+  return Math.floor(Math.random() * Math.floor(max));
+}
+
 var Player = function(id) {
   var self = Entity();
   self.id = id;
   self.number = "" + Math.floor(10 * Math.random());
+  self.score = 0;
   self.pressingRight = false;
   self.pressingLeft = false;
   self.pressingUp = false;
@@ -52,306 +155,88 @@ var Player = function(id) {
   self.pressingAttack = false;
   self.mouseAngle = 0;
   self.maxSpd = 10;
-  self.hp = 1;
-  self.hpMax = 10;
-  self.score = 0;
+  self.facingRight = true;
+  self.level = Math.floor(Math.random() * 3) + 1;
+  self.y = self.level * 200 - 100;
 
   var super_update = self.update;
   self.update = function() {
     self.updateSpd();
     super_update();
-
-    if (self.pressingAttack) {
-      self.shootBullet(self.mouseAngle);
-    }
   };
-  self.shootBullet = function(angle) {
-    var b = Bullet(self.id, angle);
-    b.x = self.x;
-    b.y = self.y;
+
+  self.updatePosition = function() {
+    self.x += self.spdX;
+    self.y += self.spdY;
   };
 
   self.updateSpd = function() {
     if (self.pressingRight) {
       self.spdX = self.maxSpd;
+      self.facingRight = true;
     } else if (self.pressingLeft) {
       self.spdX = -self.maxSpd;
-    } else {
-      self.spdX = 0;
-    }
-    if (self.pressingUp) {
-      self.spdY = -self.maxSpd;
-    } else if (self.pressingDown) {
-      self.spdY = self.maxSpd;
-    } else {
-      self.spdY = 0;
-    }
+      self.facingRight = false;
+    } else self.spdX = 0;
+    if (self.pressingUp) self.spdY = -self.maxSpd;
+    else if (self.pressingDown) self.spdY = self.maxSpd;
+    else self.spdY = 0;
   };
-
-  self.getInitPack = function() {
-    return {
-      id: self.id,
-      x: self.x,
-      y: self.y,
-      number: self.number,
-      hp: self.hp,
-      hpMax: self.hpMax,
-      score: self.score
-    };
-  };
-  self.getUpdatePack = function() {
-    return {
-      id: self.id,
-      x: self.x,
-      y: self.y,
-      hp: self.hp,
-      score: self.score
-    };
-  };
-
   Player.list[id] = self;
-
-  initPack.player.push(self.getInitPack());
   return self;
 };
 Player.list = {};
 Player.onConnect = function(socket) {
   var player = Player(socket.id);
   socket.on("keyPress", function(data) {
-    if (data.inputId === "left") {
-      player.pressingLeft = data.state;
-    } else if (data.inputId === "right") {
-      player.pressingRight = data.state;
-    } else if (data.inputId === "up") {
-      player.pressingUp = data.state;
-    } else if (data.inputId === "down") {
-      player.pressingDown = data.state;
-    } else if (data.inputId === "attack") {
-      player.pressingAttack = data.state;
-    } else if (data.inputId === "mouseAngle") {
-      player.mouseAngle = data.state;
-    }
-  });
-  socket.emit("init", {
-    selfId: socket.id,
-    player: Player.getAllInitPack(),
-    bullet: Bullet.getAllInitPack()
+    if (data.inputId === "left") player.pressingLeft = data.state;
+    else if (data.inputId === "right") player.pressingRight = data.state;
+    else if (data.inputId === "up") player.pressingUp = data.state;
+    else if (data.inputId === "down") player.pressingDown = data.state;
   });
 };
-Player.getAllInitPack = function() {
-  var players = [];
-  for (var i in Player.list) {
-    players.push(Player.list[i].getInitPack());
-  }
-  return players;
-};
-
 Player.onDisconnect = function(socket) {
   delete Player.list[socket.id];
-  removePack.player.push(socket.id);
 };
 Player.update = function() {
-  var pack = []; // Contains info for every player in game.
+  var pack = [];
   for (var i in Player.list) {
     var player = Player.list[i];
     player.update();
-    pack.push(player.getUpdatePack());
+    pack.push({
+      x: player.x,
+      y: player.y,
+      score: player.score,
+      facingRight: player.facingRight,
+      number: player.number
+    });
   }
   return pack;
 };
 
-var Bullet = function(parent, angle) {
-  var self = Entity();
-  self.id = Math.random();
-  self.spdX = Math.cos((angle / 180) * Math.PI) * 10;
-  self.spdY = Math.sin((angle / 180) * Math.PI) * 10;
-  self.parent = parent;
-  self.timer = 0;
-  self.toRemove = false;
-  var super_update = self.update;
-  self.update = function() {
-    // Remove after 100 frames.
-    if (self.timer++ > 100) {
-      self.toRemove = true;
-    }
-    super_update();
+var truck = Truck();
 
-    for (var i in Player.list) {
-      var p = Player.list[i];
-      if (self.getDistance(p) < 32 && self.parent !== p.id) {
-        p.hp -= 1;
-
-        if (p.hp <= 0) {
-          var shooter = Player.list[self.parent];
-          if (shooter) shooter.score += 1;
-          p.hp = p.hpMax;
-          p.x = Math.random() * 500;
-          p.y = Math.random() * 500;
-        }
-        self.toRemove = true;
-      }
-    }
-  };
-  self.getInitPack = function() {
-    return {
-      id: self.id,
-      x: self.x,
-      y: self.y
-    };
-  };
-  self.getUpdatePack = function() {
-    return {
-      id: self.id,
-      x: self.x,
-      y: self.y
-    };
-  };
-
-  Bullet.list[self.id] = self;
-  initPack.bullet.push(self.getInitPack());
-  return self;
-};
-Bullet.list = {};
-
-Bullet.update = function() {
-  var pack = []; // Contains info for every bullet.
-  for (var i in Bullet.list) {
-    var bullet = Bullet.list[i];
-    bullet.update();
-    if (bullet.toRemove) {
-      delete Bullet.list[i];
-      removePack.bullet.push(bullet.id);
-    } else {
-      pack.push(bullet.getUpdatePack());
-    }
-  }
-  return pack;
-};
-
-Bullet.getAllInitPack = function() {
-  var bullets = [];
-  for (var i in Bullet.list) {
-    bullets.push(Bullet.list[i].getInitPack());
-  }
-  return bullets;
-};
-
-var DEBUG = true; // TODO: Set to false before deploying
-
-var isValidPassword = function(data, cb) {
-  return cb(true);
-  //   db.account.find(
-  //     { username: data.username, password: data.password },
-  //     function(err, result) {
-  //       if (result.length > 0) {
-  //         cb(true);
-  //       } else {
-  //         cb(false);
-  //       }
-  //     }
-  //   );
-};
-var isUsernameTaken = function(data, cb) {
-  return cb(false);
-
-  //   db.account.find({ username: data.username }, function(err, result) {
-  //     if (result.length > 0) {
-  //       cb(true);
-  //     } else {
-  //       cb(false);
-  //     }
-  //   });
-};
-var addUser = function(data, cb) {
-  return cb();
-  //   db.account.insert(
-  //     { username: data.username, password: data.password },
-  //     function(err) {
-  //       cb();
-  //     }
-  //   );
-};
-
-// Retrieving the socket io library.
 var io = require("socket.io")(serv, {});
-// Called when a player connects:
 io.sockets.on("connection", function(socket) {
-  socket.id = Math.random(); // Assign unique ID for each new client.
+  socket.id = Math.random();
   SOCKET_LIST[socket.id] = socket;
 
-  socket.on("signIn", function(data) {
-    isValidPassword(data, function(res) {
-      if (res) {
-        Player.onConnect(socket);
-        socket.emit("signInResponse", { success: true });
-      } else {
-        socket.emit("signInResponse", { success: false });
-      }
-    });
-  });
-  socket.on("signUp", function(data) {
-    isUsernameTaken(data, function(res) {
-      if (res) {
-        socket.emit("signUpResponse", { success: false });
-      } else {
-        addUser(data, function() {
-          socket.emit("signUpResponse", { success: true });
-        });
-      }
-    });
-  });
+  Player.onConnect(socket);
 
   socket.on("disconnect", function() {
     delete SOCKET_LIST[socket.id];
     Player.onDisconnect(socket);
   });
-
-  socket.on("sendMsgToServer", function(data) {
-    var playerName = ("" + socket.id).slice(2, 7);
-    for (var i in SOCKET_LIST) {
-      SOCKET_LIST[i].emit("addToChat", playerName + ": " + data);
-    }
-  });
-  socket.on("evalServer", function(data) {
-    if (!DEBUG) {
-      return;
-    }
-    var res = eval(data);
-    socket.emit("evalAnswer", res);
-  });
 });
 
-var initPack = { player: [], bullet: [] };
-var removePack = { player: [], bullet: [] };
-
-// Update frames
 setInterval(function() {
   var pack = {
     player: Player.update(),
-    bullet: Bullet.update()
+    truck: Truck.update(truck)
   };
 
   for (var i in SOCKET_LIST) {
     var socket = SOCKET_LIST[i];
-    socket.emit("init", initPack);
-    socket.emit("update", pack);
-    socket.emit("remove", removePack);
+    socket.emit("newPositions", pack);
   }
-  initPack.player = [];
-  initPack.bullet = [];
-  removePack.player = [];
-  removePack.bullet = [];
 }, 1000 / 25);
-
-// Sample code
-//   console.log("Socket connection made.");
-//   socket.on("Happy", function(data) {
-//     console.log("happy because" + data.reason);
-//   });
-//   socket.emit("newPosition", {
-//     x: socket.x,
-//     y: socket.y
-//   });
-//   socket.emit("serverMsg", {
-//     msg: "hello"
-//   });
